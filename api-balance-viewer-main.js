@@ -695,18 +695,44 @@ function buildWidget(results) {
   return w;
 }
 
+// ========== 带超时的 fetchAll ==========
+function fetchAllWithTimeout(timeoutMs) {
+  return new Promise(function(resolve) {
+    var done = false;
+    var timer = setTimeout(function() {
+      if (!done) { done = true; resolve({ timedOut: true, results: [] }); }
+    }, timeoutMs);
+    fetchAll().then(function(results) {
+      if (!done) { done = true; clearTimeout(timer); resolve({ timedOut: false, results: results }); }
+    }).catch(function(err) {
+      if (!done) { done = true; clearTimeout(timer); resolve({ timedOut: false, results: [], error: String(err) }); }
+    });
+  });
+}
+
 // ========== 主菜单 ==========
 function mainMenu() {
-  var loadAlert = new Alert();
-  loadAlert.title = '\u67E5\u8BE2\u4E2D...';
-  loadAlert.message = '\u6B63\u5728\u67E5\u8BE2\u6240\u6709\u670D\u52A1\u5546...';
-  loadAlert.presentAlert();
-
-  fetchAll().then(function(results) {
-    checkThresholds(results);
-    showDashboard(results);
-  }).catch(function(err) {
-    var a = new Alert(); a.title = '\u274C \u67E5\u8BE2\u51FA\u9519'; a.message = String(err); a.addAction('\u786E\u5B9A'); a.presentAlert();
+  fetchAllWithTimeout(15000).then(function(res) {
+    if (res.timedOut) {
+      var a = new Alert();
+      a.title = '\u23F1 查询超时';
+      a.message = '网络请求超时（15秒），请检查网络后重试';
+      a.addAction('重试');
+      a.addCancelAction('退出');
+      a.presentAlert().then(function(idx) { if (idx === 0) mainMenu(); });
+      return;
+    }
+    if (res.error) {
+      var a = new Alert();
+      a.title = '\u274C 查询出错';
+      a.message = res.error;
+      a.addAction('重试');
+      a.addCancelAction('退出');
+      a.presentAlert().then(function(idx) { if (idx === 0) mainMenu(); });
+      return;
+    }
+    checkThresholds(res.results);
+    showDashboard(res.results);
   });
 }
 
