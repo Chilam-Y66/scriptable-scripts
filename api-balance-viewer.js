@@ -1,5 +1,51 @@
-// API余额查看器 v5.2.0 - 修复 UITableCell 错误 + 改进 UI
+// API余额查看器 v6.0.0 - 自动更新 + UITable 交互界面
 // 作者：小A | 支持：DeepSeek/OpenAI/Anthropic/阿里云/腾讯混元/Kimi/智谱GLM/自定义
+// 远程更新地址: https://github.com/Chilam-Y66/scriptable-scripts
+
+// ========== 自动更新模块 ==========
+var SCRIPT_NAME = "api-bal-viewer";
+var SCRIPT_URL = "https://raw.githubusercontent.com/Chilam-Y66/scriptable-scripts/main/api-balance-viewer-main.js";
+var fm = FileManager.local();
+var runDir = fm.joinPath(fm.documentsDirectory(), SCRIPT_NAME);
+var moduleDir = fm.joinPath(runDir, "Running");
+
+if (!fm.fileExists(runDir)) fm.createDirectory(runDir);
+if (!fm.fileExists(moduleDir)) fm.createDirectory(moduleDir);
+
+function downloadModule() {
+  var now = new Date();
+  var df = new DateFormatter();
+  df.dateFormat = "yyyyMMddHH";
+  var moduleFilename = df.string(now) + ".js";
+  var modulePath = fm.joinPath(moduleDir, moduleFilename);
+
+  // 如果本地已有最新版则直接使用
+  if (fm.fileExists(modulePath)) {
+    return new Promise(function(resolve) { resolve(modulePath); });
+  }
+
+  return new Promise(function(resolve) {
+    // 清理旧版本
+    try {
+      var oldFiles = fm.listContents(moduleDir);
+      oldFiles.forEach(function(f) { fm.remove(fm.joinPath(moduleDir, f)); });
+    } catch(e) {}
+
+    // 下载最新版
+    var req = new Request(SCRIPT_URL);
+    req.loadString().then(function(content) {
+      if (content && content.length > 100) {
+        fm.write(modulePath, content);
+        resolve(modulePath);
+      } else {
+        // 下载失败，找旧版本
+        resolve(null);
+      }
+    }).catch(function() {
+      resolve(null);
+    });
+  });
+}
 
 // ========== 工具函数 ==========
 function pad2(n) {
@@ -411,7 +457,7 @@ function checkThresholds(results) {
   results.forEach(function(r) {
     if (!r.success || !r.balance) return;
     var balNum = parseFloat(r.balance);
-    if (isNaN(balNum)) return;
+    if (balNum !== balNum) return;
     var threshold = th[r.id] || th['_global'] || 5;
     if (balNum <= threshold) {
       var n = new Notification();
@@ -859,7 +905,7 @@ function buildWidget(results) {
   results.forEach(function(r) {
     if (!r.success || !r.balance) return;
     var balNum = parseFloat(r.balance);
-    if (isNaN(balNum)) return;
+    if (balNum !== balNum) return;
     var threshold = th[r.id] || th['_global'] || 5;
     if (balNum <= threshold) hasLow = true;
   });
@@ -959,30 +1005,73 @@ function buildWidget(results) {
   return w;
 }
 
-// ========== 主入口 ==========
-function mainMenu() {
-  // 查询所有服务商
-  var loadAlert = new Alert();
-  loadAlert.title = '查询中...';
-  loadAlert.message = '正在查询所有服务商...';
-  loadAlert.presentAlert();
+// ========== 带超时的 fetchAll ==========
+function fetchAllWithTimeout(timeoutMs) {
+  return new Promise(function(resolve) {
+    var done = false;
+    var timer = setTimeout(function() {
+      if (!done) { done = true; resolve({ timedOut: true, results: [] }); }
+    }, timeoutMs);
 
-  fetchAll().then(function(results) {
-    // 检查阈值
-    checkThresholds(results);
-    // 显示 Dashboard
-    showDashboard(results);
-  }).catch(function(err) {
-    var a = new Alert();
-    a.title = '❌ 查询出错';
-    a.message = String(err);
-    a.addAction('确定');
-    a.presentAlert();
+    fetchAll().then(function(results) {
+      if (!done) { done = true; clearTimeout(timer); resolve({ timedOut: false, results: results }); }
+    }).catch(function(err) {
+      if (!done) { done = true; clearTimeout(timer); resolve({ timedOut: false, results: [], error: String(err) }); }
+    });
   });
 }
 
-// ========== 脚本入口 ==========
-(function() {
+// ========== 主入口 ==========
+function mainMenu() {
+  // 直接查询（不弹loading alert，避免UI阻塞）
+  fetchAllWithTimeout(15000).then(function(res) {
+    if (res.timedOut) {
+      var a = new Alert();
+      a.title = '⏱ 查询超时';
+      a.message = '网络请求超时（15秒），请检查网络连接后重试';
+      a.addAction('重试');
+      a.addCancelAction('退出');
+      a.presentAlert().then(function(idx) {
+        if (idx === 0) mainMenu();
+      });
+      return;
+    }
+    if (res.error) {
+      var a = new Alert();
+      a.title = '❌ 查询出错';
+      a.message = res.error;
+      a.addAction('重试');
+      a.addCancelAction('退出');
+      a.presentAlert().then(function(idx) {
+        if (idx === 0) mainMenu();
+      });
+      return;
+    }
+    checkThresholds(res.results);
+    showDashboard(res.results);
+  });
+}
+
+// ========== 脚本入口（自动更新加载器）==========
+(async function() {
+  var modulePath = await downloadModule();
+  if (modulePath) {
+    try {
+      var module = await importModule(modulePath);
+      if (module && module.main) {
+        await module.main();
+        return;
+      }
+    } catch(e) {
+      console.log("模块加载失败，使用内嵌版本: " + e);
+    }
+  }
+  // 如果远程加载失败，使用内嵌的主逻辑
+  runMain();
+})();
+
+// ========== 内嵌主逻辑（离线备用） ==========
+function runMain() {
   // Widget 模式
   if (config && config.widgetFamily) {
     fetchAll().then(function(results) {
@@ -991,7 +1080,7 @@ function mainMenu() {
       Script.complete();
     }).catch(function() {
       var w = new ListWidget();
-      w.addText('加载失败').textColor = Color.red();
+      w.addText("加载失败").textColor = Color.red();
       Script.setWidget(w);
       Script.complete();
     });
@@ -999,7 +1088,7 @@ function mainMenu() {
   }
 
   // Siri 静默模式
-  if (args && args.widgetParameter === 'silent') {
+  if (args && args.widgetParameter === "silent") {
     fetchAll().then(function(results) {
       checkThresholds(results);
       Script.complete();
@@ -1012,18 +1101,15 @@ function mainMenu() {
   // 正常 App 模式
   var ids = getConfiguredIds();
   if (ids.length === 0) {
-    // 首次使用，引导配置
     var welcome = new Alert();
-    welcome.title = '📊 API 余额查看器';
-    welcome.message = '欢迎使用！\n\n请先配置要查询的服务商（DeepSeek/OpenAI/阿里云等）';
-    welcome.addAction('开始配置');
-    welcome.addCancelAction('退出');
+    welcome.title = "API 余额查看器 v6.0";
+    welcome.message = "欢迎使用！\n\n请先配置要查询的服务商（DeepSeek/OpenAI/阿里云等）";
+    welcome.addAction("开始配置");
+    welcome.addCancelAction("退出");
     welcome.presentAlert().then(function(idx) {
-      if (idx === 0) {
-        showConfigMenu();
-      }
+      if (idx === 0) showConfigMenu();
     });
   } else {
     mainMenu();
   }
-})();
+}
