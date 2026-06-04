@@ -231,57 +231,44 @@ function checkThresholds(results) {
 }
 
 // ========== UI 构建函数 ==========
-function buildTechLine(width) {
-  var line = "";
-  for (var i = 0; i < width; i++) line += "═";
-  return line;
-}
-
 function buildDashboardText(results) {
-  var line = buildTechLine(38);
   var msg = "";
-  msg += "╔" + line + "╗\n";
-  msg += "║   API MONITOR  v7.0         ║\n";
-  msg += "║   " + todayStr() + "  │  ONLINE        ║\n";
-  msg += "╠" + line + "╣\n";
+  msg += "API MONITOR  v7.0\n";
+  msg += todayStr() + "  |  ONLINE\n";
+  msg += "---\n\n";
   for (var i = 0; i < results.length; i++) {
     var r = results[i];
-    msg += "║ [" + r.provider.icon + "] " + r.provider.name;
-    // 补齐空格对齐
-    var nameLen = ("[" + r.provider.icon + "] " + r.provider.name).length;
-    for (var sp = nameLen; sp < 18; sp++) msg += " ";
+    msg += "[" + r.provider.icon + "] " + r.provider.name + "\n";
     if (r.success) {
       if (r.balance !== null) {
-        msg += "BAL: " + fmtNum(r.balance) + " " + r.unit.substring(0,3) + "\n";
+        msg += "  BAL:  " + fmtNum(r.balance) + " " + r.unit + "\n";
       } else if (r.notice) {
-        msg += "see console\n";
+        msg += "  INFO: " + r.notice + "\n";
       }
     } else {
-      msg += "ERR\n";
+      msg += "  ERR:  " + (r.error || "未知错误") + "\n";
     }
-    if (r.todayTokens !== null) {
-      msg += "║      TODAY: " + fmtNum(r.todayTokens);
-      var td = r.todayDetail ? "  (" + r.todayDetail + ")" : "";
-      // 截断避免太长
-      if (td.length > 30) td = td.substring(0, 30);
-      msg += td + "\n";
+    // Token 用量 - 强制显示
+    if (r.todayTokens !== null && r.todayTokens !== undefined) {
+      msg += "  TODAY: " + fmtNum(r.todayTokens);
+      if (r.todayDetail) msg += "  (" + r.todayDetail + ")";
+      msg += "\n";
     }
-    if (r.monthTokens !== null) {
-      msg += "║      MONTH: " + fmtNum(r.monthTokens);
-      var md = r.monthDetail ? "  (" + r.monthDetail + ")" : "";
-      if (md.length > 30) md = md.substring(0, 30);
-      msg += md + "\n";
+    if (r.monthTokens !== null && r.monthTokens !== undefined) {
+      msg += "  MONTH: " + fmtNum(r.monthTokens);
+      if (r.monthDetail) msg += "  (" + r.monthDetail + ")";
+      msg += "\n";
     }
-    if (!r.success && r.error) {
-      msg += "║      ERR: " + r.error.substring(0,30) + "\n";
+    // 调试：如果没有任何用量数据，显示原始返回提示
+    if (r.success && r.todayTokens === null && r.monthTokens === null) {
+      msg += "  USAGE: 暂无用量数据\n";
+      msg += "  DEBUG: API未返回usage\n";
     }
-    msg += "║ " + line.substring(0,36) + " ║\n";
+    msg += "---\n";
   }
   if (results.length === 0) {
-    msg += "║   暂无配置的服务商               ║\n";
-    msg += "║   请先添加                      ║\n";
+    msg += "暂无配置的服务商\n请先添加";
   }
-  msg += "╚" + line + "╝";
   return msg;
 }
 
@@ -290,19 +277,14 @@ async function showConfigMenu() {
   var ids = getConfiguredIds();
   while (true) {
     var alert = new Alert();
-    alert.title = "✎  CONFIGURE SERVICES";
-    var msg = "╔════════════════════════╗\n";
-    msg += "║  ID  │  SERVICE       ║\n";
-    msg += "╠════════════════════════╣\n";
+    alert.title = "CONFIGURE SERVICES";
+    var msg = "ID  |  SERVICE\n";
+    msg += "---\n";
     for (var i = 0; i < PROVIDERS.length; i++) {
       var p = PROVIDERS[i];
-      var marked = ids.indexOf(p.id) >= 0 ? "✓" : " ";
-      var line = "║ [" + marked + "] " + p.icon + "  " + p.name;
-      while (line.length < 27) line += " ";
-      line += "║\n";
-      msg += line;
+      var marked = ids.indexOf(p.id) >= 0 ? "OK" : "  ";
+      msg += "[" + marked + "] " + p.icon + " " + p.name + "\n";
     }
-    msg += "╚════════════════════════╝";
     alert.message = msg;
     alert.addAction("添加/移除 选中");
     alert.addAction("输入 API Key");
@@ -493,20 +475,16 @@ async function showDashboard() {
 async function mainMenu() {
   while (true) {
     var alert = new Alert();
-    alert.title = "◆  API MONITOR  v7.0";
-    var line = buildTechLine(30);
-    var msg = "";
-    msg += "╔" + line + "╗\n";
-    msg += "║   API BALANCE VIEWER      ║\n";
-    msg += "║   " + todayStr() + "  │  v7.0        ║\n";
-    msg += "╚" + line + "╝\n\n";
+    alert.title = "API MONITOR v7.0";
+    var msg = "API BALANCE VIEWER\n";
+    msg += todayStr() + " | v7.0\n\n";
     var ids = getConfiguredIds();
     msg += "已配置: " + ids.length + " 个服务商";
     alert.message = msg;
-    alert.addAction("[1] ►  查询余额");
-    alert.addAction("[2] ✎  配置服务商");
-    alert.addAction("[3] ⚙  预警阈值");
-    alert.addCancelAction("[0] ✕  退出");
+    alert.addAction("[1] 查询余额");
+    alert.addAction("[2] 配置服务商");
+    alert.addAction("[3] 预警阈值");
+    alert.addCancelAction("[0] 退出");
     var idx = await alert.presentAlert();
     if (idx === -1) return;  // 退出
     if (idx === 0) await showDashboard();
