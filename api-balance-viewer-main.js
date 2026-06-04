@@ -21,7 +21,7 @@ function fmtNum(n) {
   if (n !== n) return "-";
   if (Math.abs(n) >= 1000000) return (n/1000000).toFixed(2) + "M";
   if (Math.abs(n) >= 1000) return (n/1000).toFixed(1) + "K";
-  if (Number.isInteger(n)) return String(n);
+  if (n === Math.floor(n)) return String(n);
   return n.toFixed(2);
 }
 function timeNow() {
@@ -792,7 +792,7 @@ async function showThresholdMenu() {
     var r = await input.presentAlert();
     if (r === 0) {
       var v = parseFloat(input.textFieldValue(0));
-      if (!isNaN(v) && v >= 0) { th["_global"] = v; saveThresholds(th); }
+      if (v === v && v >= 0) { th["_global"] = v; saveThresholds(th); }
     }
   }
   if (idx === 1) {
@@ -824,30 +824,128 @@ async function showThresholdMenu() {
       var r = await input.presentAlert();
       if (r === 0) {
         var v = parseFloat(input.textFieldValue(0));
-        if (!isNaN(v) && v >= 0) { th[id] = v; saveThresholds(th); }
+        if (v === v && v >= 0) { th[id] = v; saveThresholds(th); }
       }
     }
   }
 }
 
-// ========== 入口 ==========
-async function main() {
-  // Widget mode
-  if (config.runsInWidget) {
-    var family = "medium";
-    try { family = config.widgetFamily || "medium"; } catch(e) { family = "medium"; }
-    var results = [];
-    try { results = await fetchAll(); } catch(e) { results = []; }
-    var widget = buildWidget(results, family);
-    Script.setWidget(widget);
-    Script.complete();
-    return;
-  }
+// ========== 缓存（供 Widget 使用） ==========
+function cacheResults(results) {
+  try {
+    // 只缓存必要字段，减少 Keychain 存储量
+    var slim = [];
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      slim.push({
+        id: r.id,
+        pid: r.provider.id,
+        pn: r.provider.name,
+        pi: r.provider.icon,
+        pc: r.provider.color,
+        pu: r.provider.unit,
+        success: r.success,
+        balance: r.balance,
+        unit: r.unit,
+        error: r.error,
+        notice: r.notice,
+        todayTokens: r.todayTokens,
+        monthTokens: r.monthTokens,
+        todayDetail: r.todayDetail,
+        monthDetail: r.monthDetail
+      });
+    }
+    safeSetKeychain("api_bal_viewer_cache", JSON.stringify(slim));
+    safeSetKeychain("api_bal_viewer_cache_ts", String(Date.now()));
+  } catch(e) {}
+}
 
+function loadCachedResults() {
+  try {
+    var s = safeGetKeychain("api_bal_viewer_cache");
+    if (!s) return [];
+    var arr = JSON.parse(s);
+    // 还原 provider 对象
+    var results = [];
+    for (var i = 0; i < arr.length; i++) {
+      var a = arr[i];
+      results.push({
+        id: a.id,
+        provider: { id:a.pid, name:a.pn, icon:a.pi, color:a.pc, unit:a.pu },
+        success: a.success,
+        balance: a.balance,
+        unit: a.unit,
+        error: a.error,
+        notice: a.notice,
+        todayTokens: a.todayTokens,
+        monthTokens: a.monthTokens,
+        todayDetail: a.todayDetail,
+        monthDetail: a.monthDetail
+      });
+    }
+    return results;
+  } catch(e) { return []; }
+}
+
+// ========== 入口 ==========
+// iOS 16 兼容：Widget 代码必须在顶级同步区域，不能放在 async 函数里
+
+var _isWidget = false;
+var _widgetFamily = "medium";
+try {
+  _isWidget = (typeof config !== "undefined" && config.runsInWidget === true);
+  if (_isWidget) {
+    try { _widgetFamily = config.widgetFamily || "medium"; } catch(e) { _widgetFamily = "medium"; }
+  }
+} catch(e) { _isWidget = false; }
+
+if (_isWidget) {
+  // ---- Widget 模式（同步执行） ----
+  // 先读缓存数据（保证有内容显示）
+  var _results = loadCachedResults();
+  var _widget = null;
+  try {
+    _widget = buildWidget(_results, _widgetFamily);
+    // 如果有缓存，显示缓存时间
+    if (_results.length > 0) {
+      var _ts = safeGetKeychain("api_bal_viewer_cache_ts");
+      if (_ts) {
+        var _age = Math.floor((Date.now() - Number(_ts)) / 60000);
+        var _cacheRow = _widget.addStack();
+        var _cacheTxt = _cacheRow.addText("Cached " + _age + "m ago");
+        _cacheTxt.font = Font.monoRoundedSystemFont(7);
+        _cacheTxt.color = Color.dynamic(new Color("#AAA"), new Color("#444"));
+      }
+    }
+  } catch(e) {
+    // 如果 buildWidget 失败，创建最小可用 widget
+    _widget = new ListWidget();
+    _widget.backgroundGradient = new LinearGradient();
+    _widget.backgroundGradient.colors = [new Color("#0A0E27"), new Color("#1A1A2E")];
+    _widget.backgroundGradient.locations = [0, 1];
+    var _errText = _widget.addText("API MONITOR");
+    _errText.font = Font.boldSystemFont(13);
+    _errText.color = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
+    var _errText2 = _widget.addText("Loading...");
+    _errText2.font = Font.systemFont(10);
+    _errText2.color = Color.dynamic(new Color("#999"), new Color("#555"));
+  }
+  // 必须调用 setWidget，否则显示占位文字
+  Script.setWidget(_widget);
+  Script.complete();
+} else {
+  // ---- In-app 模式 ----
+  main();
+}
+
+async function main() {
   // Siri silent mode
-  if (args.widgetParameter === "silent") {
+  var _wp = "";
+  try { _wp = args.widgetParameter || ""; } catch(e) {}
+  if (_wp === "silent") {
     try {
       var results = await fetchAll();
+      cacheResults(results);
       var alerts = checkThresholds(results);
       if (alerts.length > 0) {
         Notification.schedule("API Balance Alert", alerts.join("\n"));
@@ -860,6 +958,8 @@ async function main() {
   while (true) {
     var results = [];
     try { results = await fetchAll(); } catch(e) { results = []; }
+    // 缓存结果供 Widget 使用
+    cacheResults(results);
 
     // Show WebView dashboard (full-screen)
     try {
@@ -901,4 +1001,4 @@ async function main() {
   }
 }
 
-main();
+// 入口在上面（_isWidget 判断），不需要额外调用
