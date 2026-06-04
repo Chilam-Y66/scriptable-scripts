@@ -39,11 +39,16 @@ async function fetchBalance(provider, apiKey){
       var req=new Request("https://api.deepseek.com/user/balance");
       req.headers={"Authorization":"Bearer "+apiKey};
       var json=await req.loadJSON();
-      // 调试：把返回内容存起来方便排查
-      if(json&&json.balance!==undefined){
-        var bal=json.balance.total_balance!==undefined?json.balance.total_balance:null;
-        if(bal===null&&json.balance!==null) bal=json.balance;
-        return{success:true, balance:bal, raw:json};
+      // DeepSeek 新版返回: balance_infos[{currency,total_balance}]
+      if(json&&json.balance_infos&&json.balance_infos.length>0){
+        // 优先取 CNY
+        var bal=null, unit="CNY";
+        for(var bi=0;bi<json.balance_infos.length;bi++){
+          var info=json.balance_infos[bi];
+          if(info.currency==="CNY"){ bal=info.total_balance; unit="CNY"; break; }
+        }
+        if(bal===null){ bal=json.balance_infos[0].total_balance; unit=json.balance_infos[0].currency||"CNY"; }
+        return{success:true, balance:bal, unit:unit, raw:json};
       }
       if(json&&json.error) return{success:false, error:"API错误:"+JSON.stringify(json.error)};
       return{success:false, error:"返回格式异常，完整返回:"+JSON.stringify(json).substring(0,200)};
