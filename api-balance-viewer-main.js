@@ -1,4 +1,4 @@
-// API余额查看器 v7.2 - 修复 Widget Font API + TextWidget textColor
+// API余额查看器 v7.3 - 修复 Token 用量获取（DeepSeek 平台 Token）
 // 零 forEach / 零 .then() / 零顶级 await
 // WebView 全屏科技感 UI + ListWidget 自动适配深浅模式
 
@@ -129,24 +129,50 @@ async function fetchUsage(provider, apiKey) {
   var ms = monthStartStr();
   try {
     if (provider.id === "deepseek") {
-      var req = new Request("https://api.deepseek.com/user/usage?start_date=" + ms + "&end_date=" + today);
-      req.headers = { "Authorization": "Bearer " + apiKey };
-      var json = await req.loadJSON();
-      r.usageRaw = json;
-      if (json && json.data) {
-        var tT=0, tI=0, tO=0, mT=0, mI=0, mO=0;
-        for (var di = 0; di < json.data.length; di++) {
-          var d = json.data[di];
-          var tk = (d.input_tokens||0) + (d.output_tokens||0);
-          if (d.date === today) { tT += tk; tI += (d.input_tokens||0); tO += (d.output_tokens||0); }
-          mT += tk; mI += (d.input_tokens||0); mO += (d.output_tokens||0);
+      // DeepSeek 没有公开的 /user/usage 端点
+      // 使用平台内部接口 /api/v0/users/get_user_summary（需要平台登录 token）
+      // 用户在配置 API Key 时，如果同时配置了平台 token，则可用
+      var platformToken = safeGetKeychain("api_bal_viewer_deepseek_platform_token");
+      if (platformToken) {
+        var req = new Request("https://api.deepseek.com/api/v0/users/get_user_summary");
+        req.headers = {
+          "Authorization": "Bearer " + platformToken,
+          "accept": "application/json, text/plain, */*"
+        };
+        var json = await req.loadJSON();
+        r.usageRaw = json;
+        // 响应格式: { biz_data: { total_usage, monthly_usage, total_available_token_estimation, ... } }
+        var data = null;
+        if (json && json.biz_data) data = json.biz_data;
+        else if (json && json.data && typeof json.data === "object") data = json.data;
+        else if (json && json.result) data = json.result;
+        if (data) {
+          // monthly_usage 是本月 token 用量（已含 input + output）
+          var mu = data.monthly_usage || data.monthlyUsage || 0;
+          var tu = data.total_usage || data.totalUsage || 0;
+          r.monthTokens = Number(mu) || 0;
+          r.totalTokens = Number(tu) || 0;
+          r.monthDetail = fmtNum(r.monthTokens) + " tok";
+          // total_usage 是历史总量，可估算今日
+          if (r.totalTokens > r.monthTokens) {
+            r.todayTokens = null; // 无法精确分日，显示 null
+            r.todayDetail = "N/A (see platform)";
+          } else {
+            r.todayTokens = null;
+            r.todayDetail = "N/A";
+          }
+          // 额外：预估剩余 token
+          var est = data.total_available_token_estimation || data.totalAvailableTokenEstimation || null;
+          if (est !== null) {
+            r.estimatedTokens = Number(est) || 0;
+          }
         }
-        r.todayTokens = tT; r.monthTokens = mT;
-        r.todayDetail = "In " + fmtNum(tI) + " / Out " + fmtNum(tO);
-        r.monthDetail = "In " + fmtNum(mI) + " / Out " + fmtNum(mO);
-      } else if (json && json.code === 0) {
-        r.todayTokens = 0; r.monthTokens = 0;
-        r.todayDetail = "No data"; r.monthDetail = "No data";
+      } else {
+        // 没有平台 token，无法获取用量
+        r.todayTokens = null;
+        r.monthTokens = null;
+        r.todayDetail = "";
+        r.monthDetail = "Need platform token";
       }
     }
     if (provider.id === "openai") {
@@ -370,7 +396,11 @@ function buildDashboardHTML(results) {
         }
         h += '</div>';
       } else if (r.success) {
-        h += '<div class="no-usage">Usage data not available</div>';
+        if (r.id === "deepseek") {
+          h += '<div class="no-usage">Configure DS Platform Token in settings</div>';
+        } else {
+          h += '<div class="no-usage">Usage data not available</div>';
+        }
       }
       h += '</div>';
     }
@@ -667,11 +697,20 @@ async function showConfigMenu() {
     alert.message = msg;
     alert.addAction("Add / Remove");
     alert.addAction("Edit API Key");
+    // 检查是否有 DeepSeek，有则显示平台 Token 选项
+    var hasDeepSeek = false;
+    for (var ci = 0; ci < ids.length; ci++) {
+      if (ids[ci] === "deepseek") { hasDeepSeek = true; break; }
+    }
+    if (hasDeepSeek) {
+      alert.addAction("DS Platform Token");
+    }
     alert.addCancelAction("Back");
     var idx = await alert.presentAlert();
     if (idx === -1) return;
     if (idx === 0) await configToggleService();
     if (idx === 1) await configInputKey();
+    if (idx === 2 && hasDeepSeek) await configPlatformToken();
   }
 }
 
@@ -768,6 +807,37 @@ async function configInputKey() {
   }
 }
 
+async function configPlatformToken() {
+  var existing = safeGetKeychain("api_bal_viewer_deepseek_platform_token");
+  var alert = new Alert();
+  alert.title = "DeepSeek Platform Token";
+  alert.message = "Used to fetch token usage data.\n\nHow to get it:\n1. Open platform.deepseek.com in Safari\n2. Login and go to Usage page\n3. Open Safari dev tools (Safari > Develop > Web Inspector)\n4. In Console, type: Object.keys(localStorage)\n5. Find the key containing your token\n6. In Console: localStorage.getItem('that_key_name')\n7. Copy the token value (long JWT string)";
+  alert.addTextField("Platform Token", existing || "");
+  alert.addAction("Save");
+  alert.addAction("Remove");
+  alert.addCancelAction("Cancel");
+  var idx = await alert.presentAlert();
+  if (idx === 0) {
+    var token = alert.textFieldValue(0);
+    if (token && token.trim().length > 10) {
+      safeSetKeychain("api_bal_viewer_deepseek_platform_token", token.trim());
+      var ok = new Alert();
+      ok.title = "Saved";
+      ok.message = "Platform token saved.\nUsage data will now be fetched.";
+      ok.addAction("OK");
+      await ok.presentAlert();
+    }
+  }
+  if (idx === 1) {
+    safeRemoveKeychain("api_bal_viewer_deepseek_platform_token");
+    var ok2 = new Alert();
+    ok2.title = "Removed";
+    ok2.message = "Platform token removed.";
+    ok2.addAction("OK");
+    await ok2.presentAlert();
+  }
+}
+
 async function showThresholdMenu() {
   var th = getThresholds();
   var ids = getConfiguredIds();
@@ -852,7 +922,9 @@ function cacheResults(results) {
         todayTokens: r.todayTokens,
         monthTokens: r.monthTokens,
         todayDetail: r.todayDetail,
-        monthDetail: r.monthDetail
+        monthDetail: r.monthDetail,
+        totalTokens: r.totalTokens || null,
+        estimatedTokens: r.estimatedTokens || null
       });
     }
     safeSetKeychain("api_bal_viewer_cache", JSON.stringify(slim));
@@ -880,7 +952,9 @@ function loadCachedResults() {
         todayTokens: a.todayTokens,
         monthTokens: a.monthTokens,
         todayDetail: a.todayDetail,
-        monthDetail: a.monthDetail
+        monthDetail: a.monthDetail,
+        totalTokens: a.totalTokens || null,
+        estimatedTokens: a.estimatedTokens || null
       });
     }
     return results;
