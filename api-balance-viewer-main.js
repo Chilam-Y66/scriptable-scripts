@@ -1,4 +1,4 @@
-// API余额查看器 v7.3 - 修复 Token 用量获取（DeepSeek 平台 Token）
+// API余额查看器 v7.4 - 移除无效 Platform Token 功能，用量数据改为跳转平台查看
 // 零 forEach / 零 .then() / 零顶级 await
 // WebView 全屏科技感 UI + ListWidget 自动适配深浅模式
 
@@ -396,11 +396,7 @@ function buildDashboardHTML(results) {
         }
         h += '</div>';
       } else if (r.success) {
-        if (r.id === "deepseek") {
-          h += '<div class="no-usage">Configure DS Platform Token in settings</div>';
-        } else {
-          h += '<div class="no-usage">Usage data not available</div>';
-        }
+        h += '<div class="no-usage"><a href="https://platform.deepseek.com/usage" style="color:inherit;text-decoration:none">View Usage on Platform</a></div>';
       }
       h += '</div>';
     }
@@ -697,20 +693,11 @@ async function showConfigMenu() {
     alert.message = msg;
     alert.addAction("Add / Remove");
     alert.addAction("Edit API Key");
-    // 检查是否有 DeepSeek，有则显示平台 Token 选项
-    var hasDeepSeek = false;
-    for (var ci = 0; ci < ids.length; ci++) {
-      if (ids[ci] === "deepseek") { hasDeepSeek = true; break; }
-    }
-    if (hasDeepSeek) {
-      alert.addAction("DS Platform Token");
-    }
     alert.addCancelAction("Back");
     var idx = await alert.presentAlert();
     if (idx === -1) return;
     if (idx === 0) await configToggleService();
     if (idx === 1) await configInputKey();
-    if (idx === 2 && hasDeepSeek) await configPlatformToken();
   }
 }
 
@@ -804,37 +791,6 @@ async function configInputKey() {
       ok.addAction("OK");
       await ok.presentAlert();
     }
-  }
-}
-
-async function configPlatformToken() {
-  var existing = safeGetKeychain("api_bal_viewer_deepseek_platform_token");
-  var alert = new Alert();
-  alert.title = "DeepSeek Platform Token";
-  alert.message = "Used to fetch token usage data.\n\nHow to get it:\n1. Open platform.deepseek.com in Safari\n2. Login and go to Usage page\n3. Open Safari dev tools (Safari > Develop > Web Inspector)\n4. In Console, type: Object.keys(localStorage)\n5. Find the key containing your token\n6. In Console: localStorage.getItem('that_key_name')\n7. Copy the token value (long JWT string)";
-  alert.addTextField("Platform Token", existing || "");
-  alert.addAction("Save");
-  alert.addAction("Remove");
-  alert.addCancelAction("Cancel");
-  var idx = await alert.presentAlert();
-  if (idx === 0) {
-    var token = alert.textFieldValue(0);
-    if (token && token.trim().length > 10) {
-      safeSetKeychain("api_bal_viewer_deepseek_platform_token", token.trim());
-      var ok = new Alert();
-      ok.title = "Saved";
-      ok.message = "Platform token saved.\nUsage data will now be fetched.";
-      ok.addAction("OK");
-      await ok.presentAlert();
-    }
-  }
-  if (idx === 1) {
-    safeRemoveKeychain("api_bal_viewer_deepseek_platform_token");
-    var ok2 = new Alert();
-    ok2.title = "Removed";
-    ok2.message = "Platform token removed.";
-    ok2.addAction("OK");
-    await ok2.presentAlert();
   }
 }
 
