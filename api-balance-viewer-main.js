@@ -1,4 +1,4 @@
-// API余额查看器 v7.1 - 大版面 WebView 仪表盘 + Widget 全尺寸 + iOS 16 严格兼容
+// API余额查看器 v7.2 - 修复 Widget Font API + TextWidget textColor
 // 零 forEach / 零 .then() / 零顶级 await
 // WebView 全屏科技感 UI + ListWidget 自动适配深浅模式
 
@@ -419,48 +419,48 @@ function buildWidgetSmall(widget, results) {
   var titleRow = widget.addStack();
   var t1 = titleRow.addText("API MON");
   t1.font = Font.boldSystemFont(11);
-  t1.color = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
+  t1.textColor = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
   titleRow.addSpacer();
   var t2 = titleRow.addText(todayStr().substring(5));
-  t2.font = Font.monoRoundedSystemFont(9);
-  t2.color = Color.dynamic(new Color("#999"), new Color("#555"));
+  t2.font = Font.regularMonospacedSystemFont(9);
+  t2.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
   widget.addSpacer(8);
 
   if (results.length === 0) {
     var et = widget.addText("No Data");
     et.font = Font.systemFont(11);
-    et.color = Color.dynamic(new Color("#999"), new Color("#555"));
+    et.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
   } else {
     // Show first provider balance
     var r = results[0];
     var row = widget.addStack();
     var icon = row.addText(" " + r.provider.icon + " ");
     icon.font = Font.boldSystemFont(12);
-    icon.color = new Color(r.provider.color);
+    icon.textColor = new Color(r.provider.color);
     row.addSpacer(4);
     if (r.success && r.balance !== null) {
       var val = row.addText(fmtNum(r.balance) + " " + r.unit.substring(0,3));
-      val.font = Font.boldMonoRoundedSystemFont(14);
-      val.color = Color.dynamic(new Color("#333"), new Color("#00FF88"));
+      val.font = Font.boldMonospacedSystemFont(14);
+      val.textColor = Color.dynamic(new Color("#333"), new Color("#00FF88"));
     } else {
       var val = row.addText("ERR");
       val.font = Font.boldSystemFont(12);
-      val.color = new Color("#FF6B35");
+      val.textColor = new Color("#FF6B35");
     }
     widget.addSpacer(4);
     // Count
     if (results.length > 1) {
       var ct = widget.addText("+" + (results.length - 1) + " more");
       ct.font = Font.systemFont(9);
-      ct.color = Color.dynamic(new Color("#AAA"), new Color("#555"));
+      ct.textColor = Color.dynamic(new Color("#AAA"), new Color("#555"));
     }
   }
 
   widget.addSpacer(8);
   var ft = widget.addStack();
   var ft1 = ft.addText(timeNow() + " ");
-  ft1.font = Font.monoRoundedSystemFont(8);
-  ft1.color = Color.dynamic(new Color("#BBB"), new Color("#444"));
+  ft1.font = Font.regularMonospacedSystemFont(8);
+  ft1.textColor = Color.dynamic(new Color("#BBB"), new Color("#444"));
   widget.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
   return widget;
 }
@@ -470,23 +470,23 @@ function buildWidgetMedium(widget, results) {
   var titleRow = widget.addStack();
   var t1 = titleRow.addText("API MONITOR");
   t1.font = Font.boldSystemFont(13);
-  t1.color = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
+  t1.textColor = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
   titleRow.addSpacer();
   var t2 = titleRow.addText(todayStr().substring(5));
-  t2.font = Font.monoRoundedSystemFont(10);
-  t2.color = Color.dynamic(new Color("#999"), new Color("#555"));
+  t2.font = Font.regularMonospacedSystemFont(10);
+  t2.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
   widget.addSpacer(8);
 
   // Separator
   var sep = widget.addText("─".repeat(25));
-  sep.font = Font.monoRoundedSystemFont(8);
+  sep.font = Font.regularMonospacedSystemFont(8);
   sep.textColor = Color.dynamic(new Color("#DDD"), new Color("#333"));
   widget.addSpacer(6);
 
   if (results.length === 0) {
     var et = widget.addText("  No configured services\n  Tap to setup");
     et.font = Font.systemFont(12);
-    et.color = Color.dynamic(new Color("#999"), new Color("#555"));
+    et.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
   } else {
     for (var i = 0; i < results.length; i++) {
       var r = results[i];
@@ -496,33 +496,33 @@ function buildWidgetMedium(widget, results) {
       // Icon circle
       var iconBg = row.addText(" " + r.provider.icon + " ");
       iconBg.font = Font.boldSystemFont(10);
-      iconBg.color = new Color(r.provider.color);
+      iconBg.textColor = new Color(r.provider.color);
       row.addSpacer(4);
 
       if (r.success && r.balance !== null) {
         var val = row.addText(fmtNum(r.balance));
-        val.font = Font.boldMonoRoundedSystemFont(13);
-        val.color = Color.dynamic(new Color("#222"), new Color("#00FF88"));
+        val.font = Font.boldMonospacedSystemFont(13);
+        val.textColor = Color.dynamic(new Color("#222"), new Color("#00FF88"));
         row.addSpacer(2);
         var u = row.addText(r.unit.substring(0,3));
         u.font = Font.systemFont(9);
-        u.color = Color.dynamic(new Color("#888"), new Color("#666"));
+        u.textColor = Color.dynamic(new Color("#888"), new Color("#666"));
       } else if (r.notice) {
         var v2 = row.addText("N/A");
         v2.font = Font.systemFont(11);
-        v2.color = Color.dynamic(new Color("#999"), new Color("#555"));
+        v2.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
       } else {
         var v3 = row.addText("ERR");
         v3.font = Font.boldSystemFont(10);
-        v3.color = new Color("#FF6B35");
+        v3.textColor = new Color("#FF6B35");
       }
 
       // Token usage (right side)
       row.addSpacer();
       if (r.todayTokens !== null) {
         var tk = row.addText("T:" + fmtNum(r.todayTokens));
-        tk.font = Font.monoRoundedSystemFont(9);
-        tk.color = Color.dynamic(new Color("#777"), new Color("#888"));
+        tk.font = Font.regularMonospacedSystemFont(9);
+        tk.textColor = Color.dynamic(new Color("#777"), new Color("#888"));
       }
 
       widget.addSpacer(5);
@@ -534,12 +534,12 @@ function buildWidgetMedium(widget, results) {
   var ft = widget.addStack();
   ft.addText(" ");
   var ft1 = ft.addText(timeNow() + " Updated");
-  ft1.font = Font.monoRoundedSystemFont(8);
-  ft1.color = Color.dynamic(new Color("#BBB"), new Color("#444"));
+  ft1.font = Font.regularMonospacedSystemFont(8);
+  ft1.textColor = Color.dynamic(new Color("#BBB"), new Color("#444"));
   ft.addSpacer();
   var ft2 = ft.addText("30m");
-  ft2.font = Font.monoRoundedSystemFont(8);
-  ft2.color = Color.dynamic(new Color("#CCC"), new Color("#555"));
+  ft2.font = Font.regularMonospacedSystemFont(8);
+  ft2.textColor = Color.dynamic(new Color("#CCC"), new Color("#555"));
 
   widget.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
   return widget;
@@ -550,23 +550,23 @@ function buildWidgetLarge(widget, results) {
   var titleRow = widget.addStack();
   var t1 = titleRow.addText("API MONITOR");
   t1.font = Font.boldSystemFont(15);
-  t1.color = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
+  t1.textColor = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
   titleRow.addSpacer();
   var t2 = titleRow.addText(todayStr());
-  t2.font = Font.monoRoundedSystemFont(11);
-  t2.color = Color.dynamic(new Color("#999"), new Color("#555"));
+  t2.font = Font.regularMonospacedSystemFont(11);
+  t2.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
   widget.addSpacer(8);
 
   // Separator
   var sep = widget.addText("─".repeat(30));
-  sep.font = Font.monoRoundedSystemFont(8);
+  sep.font = Font.regularMonospacedSystemFont(8);
   sep.textColor = Color.dynamic(new Color("#DDD"), new Color("#333"));
   widget.addSpacer(6);
 
   if (results.length === 0) {
     var et = widget.addText("  No configured services\n  Tap to setup");
     et.font = Font.systemFont(14);
-    et.color = Color.dynamic(new Color("#999"), new Color("#555"));
+    et.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
   } else {
     for (var i = 0; i < results.length; i++) {
       var r = results[i];
@@ -576,21 +576,21 @@ function buildWidgetLarge(widget, results) {
       hdr.centerAlignContent();
       var ic = hdr.addText(" " + r.provider.icon + " ");
       ic.font = Font.boldSystemFont(11);
-      ic.color = new Color(r.provider.color);
+      ic.textColor = new Color(r.provider.color);
       var nm = hdr.addText(r.provider.name);
       nm.font = Font.boldSystemFont(13);
-      nm.color = Color.dynamic(new Color("#222"), new Color("#DDD"));
+      nm.textColor = Color.dynamic(new Color("#222"), new Color("#DDD"));
       hdr.addSpacer();
 
       // Status + Balance (right aligned)
       if (r.success && r.balance !== null) {
         var bal = hdr.addText(fmtNum(r.balance) + " " + r.unit);
-        bal.font = Font.boldMonoRoundedSystemFont(13);
-        bal.color = Color.dynamic(new Color("#111"), new Color("#00FF88"));
+        bal.font = Font.boldMonospacedSystemFont(13);
+        bal.textColor = Color.dynamic(new Color("#111"), new Color("#00FF88"));
       } else if (r.error) {
         var err = hdr.addText("ERR");
         err.font = Font.boldSystemFont(10);
-        err.color = new Color("#FF6B35");
+        err.textColor = new Color("#FF6B35");
       }
       widget.addSpacer(3);
 
@@ -601,23 +601,23 @@ function buildWidgetLarge(widget, results) {
         usageRow.addSpacer(20); // indent to align with name
         if (r.todayTokens !== null) {
           var td = usageRow.addText("Today: " + fmtNum(r.todayTokens));
-          td.font = Font.monoRoundedSystemFont(10);
-          td.color = Color.dynamic(new Color("#555"), new Color("#8899AA"));
+          td.font = Font.regularMonospacedSystemFont(10);
+          td.textColor = Color.dynamic(new Color("#555"), new Color("#8899AA"));
           if (r.todayDetail) {
             var tdd = usageRow.addText(" (" + r.todayDetail + ")");
-            tdd.font = Font.monoRoundedSystemFont(9);
-            tdd.color = Color.dynamic(new Color("#999"), new Color("#556677"));
+            tdd.font = Font.regularMonospacedSystemFont(9);
+            tdd.textColor = Color.dynamic(new Color("#999"), new Color("#556677"));
           }
         }
         usageRow.addSpacer(8);
         if (r.monthTokens !== null) {
           var md = usageRow.addText("Month: " + fmtNum(r.monthTokens));
-          md.font = Font.monoRoundedSystemFont(10);
-          md.color = Color.dynamic(new Color("#555"), new Color("#8899AA"));
+          md.font = Font.regularMonospacedSystemFont(10);
+          md.textColor = Color.dynamic(new Color("#555"), new Color("#8899AA"));
           if (r.monthDetail) {
             var mdd = usageRow.addText(" (" + r.monthDetail + ")");
-            mdd.font = Font.monoRoundedSystemFont(9);
-            mdd.color = Color.dynamic(new Color("#999"), new Color("#556677"));
+            mdd.font = Font.regularMonospacedSystemFont(9);
+            mdd.textColor = Color.dynamic(new Color("#999"), new Color("#556677"));
           }
         }
         widget.addSpacer(3);
@@ -626,7 +626,7 @@ function buildWidgetLarge(widget, results) {
       // Card separator
       if (i < results.length - 1) {
         var sep2 = widget.addText("─".repeat(28));
-        sep2.font = Font.monoRoundedSystemFont(6);
+        sep2.font = Font.regularMonospacedSystemFont(6);
         sep2.textColor = Color.dynamic(new Color("#EEE"), new Color("#2A2A3E"));
         widget.addSpacer(3);
       }
@@ -637,12 +637,12 @@ function buildWidgetLarge(widget, results) {
   // Footer
   var ft = widget.addStack();
   var ft1 = ft.addText(" " + timeNow() + " Updated");
-  ft1.font = Font.monoRoundedSystemFont(9);
-  ft1.color = Color.dynamic(new Color("#BBB"), new Color("#444"));
+  ft1.font = Font.regularMonospacedSystemFont(9);
+  ft1.textColor = Color.dynamic(new Color("#BBB"), new Color("#444"));
   ft.addSpacer();
   var ft2 = ft.addText("Auto 30min");
-  ft2.font = Font.monoRoundedSystemFont(9);
-  ft2.color = Color.dynamic(new Color("#CCC"), new Color("#555"));
+  ft2.font = Font.regularMonospacedSystemFont(9);
+  ft2.textColor = Color.dynamic(new Color("#CCC"), new Color("#555"));
 
   widget.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
   return widget;
@@ -913,22 +913,32 @@ if (_isWidget) {
         var _age = Math.floor((Date.now() - Number(_ts)) / 60000);
         var _cacheRow = _widget.addStack();
         var _cacheTxt = _cacheRow.addText("Cached " + _age + "m ago");
-        _cacheTxt.font = Font.monoRoundedSystemFont(7);
-        _cacheTxt.color = Color.dynamic(new Color("#AAA"), new Color("#444"));
+        _cacheTxt.font = Font.regularMonospacedSystemFont(7);
+        _cacheTxt.textColor = Color.dynamic(new Color("#AAA"), new Color("#444"));
       }
     }
-  } catch(e) {
-    // 如果 buildWidget 失败，创建最小可用 widget
+  } catch(_e) {
+    // 如果 buildWidget 失败，创建最小可用 widget 并显示错误
     _widget = new ListWidget();
-    _widget.backgroundGradient = new LinearGradient();
-    _widget.backgroundGradient.colors = [new Color("#0A0E27"), new Color("#1A1A2E")];
-    _widget.backgroundGradient.locations = [0, 1];
+    var _fallbackGrad = new LinearGradient();
+    _fallbackGrad.colors = [new Color("#0A0E27"), new Color("#1A1A2E")];
+    _fallbackGrad.locations = [0, 1];
+    _widget.backgroundGradient = _fallbackGrad;
+    _widget.setPadding(12, 12, 12, 12);
     var _errText = _widget.addText("API MONITOR");
-    _errText.font = Font.boldSystemFont(13);
-    _errText.color = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
-    var _errText2 = _widget.addText("Loading...");
-    _errText2.font = Font.systemFont(10);
-    _errText2.color = Color.dynamic(new Color("#999"), new Color("#555"));
+    _errText.font = Font.boldSystemFont(14);
+    _errText.textColor = Color.dynamic(new Color("#0088CC"), new Color("#00D4FF"));
+    _widget.addSpacer(6);
+    var _errMsg = _widget.addText("Error: " + String(_e).substring(0, 80));
+    _errMsg.font = Font.systemFont(9);
+    _errMsg.textColor = new Color("#FF6B35");
+    _widget.addSpacer(4);
+    var _hint = _widget.addText("Open in Scriptable app");
+    _hint.font = Font.systemFont(9);
+    _hint.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
+    var _hint2 = _widget.addText("to configure API keys");
+    _hint2.font = Font.systemFont(9);
+    _hint2.textColor = Color.dynamic(new Color("#999"), new Color("#555"));
   }
   // 必须调用 setWidget，否则显示占位文字
   Script.setWidget(_widget);
