@@ -143,6 +143,10 @@ async function fetchUsage(provider, apiKey) {
         r.todayTokens = tT; r.monthTokens = mT;
         r.todayDetail = "In " + fmtNum(tI) + " / Out " + fmtNum(tO);
         r.monthDetail = "In " + fmtNum(mI) + " / Out " + fmtNum(mO);
+      } else if (json && json.code === 0) {
+        // API 返回成功但无数据
+        r.todayTokens = 0; r.monthTokens = 0;
+        r.todayDetail = "无记录"; r.monthDetail = "无记录";
       }
     }
     if (provider.id === "openai") {
@@ -259,10 +263,13 @@ function buildDashboardText(results) {
       if (r.monthDetail) msg += "  (" + r.monthDetail + ")";
       msg += "\n";
     }
-    // 调试：如果没有任何用量数据，显示原始返回提示
+    // 调试：如果没有任何用量数据，显示原始返回
     if (r.success && r.todayTokens === null && r.monthTokens === null) {
       msg += "  USAGE: 暂无用量数据\n";
-      msg += "  DEBUG: API未返回usage\n";
+      if (r.usageRaw) {
+        var rawStr = JSON.stringify(r.usageRaw).substring(0, 80);
+        msg += "  RAW: " + rawStr + "\n";
+      }
     }
     msg += "---\n";
   }
